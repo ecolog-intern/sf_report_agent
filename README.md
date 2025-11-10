@@ -1,0 +1,2 @@
+# sf_report_agent
+salesforceのレポートをdataframeでそのまま取得する
