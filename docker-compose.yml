@@ -1,0 +1,10 @@
+services:
+  bulk-agent:
+    build: .
+    container_name: bulk_agent
+    volumes:
+      - ./src/outputs:/app/src/outputs
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
