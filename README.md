@@ -2,23 +2,23 @@
 
 SalesforceレポートからSOQLを自動生成し、Bulk API 2.0でデータを取得するツール
 
-## ローカル環境構築
+## 使用方法
 1. .envファイルをルート直下に配置
 2. dockerで起動
 ```bash
 # .envファイルを設定後
-docker-compose up --build
+docker-compose up --abort-on-container-exit --exit-code-from bulk-agent
 ```
 
-## Output
-
-実行後、`src/outputs/{datetime}/` に以下が生成されます：
+3. 実行後、`src/outputs/{datetime}/` に以下が生成されます：
 
 - **query.txt** - 実行されたSOQLクエリ
 - **result.csv** - クエリ結果データ
 - **embed.py** - 再利用可能なBulk API実行ファイル
 
-embed.pyには実際のsqlを織り込んだpythonファイルが出力されるので、それをそのまま自分のプログラムに貼り付ける
+result.csvと実際のレポートを比較して、差分を検証する
+差分がある場合、原因を特定してクエリを修正、embed.pyのSQLを修正する
+
 
 関数の使い方はembed.pyの最後を参照に
 

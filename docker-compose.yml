@@ -1,10 +1,40 @@
 services:
+  postgres:
+    image: postgres:15
+    container_name: soql_vectordb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vectordb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vectordb123}
+      POSTGRES_DB: ${POSTGRES_DB:-soql_vectors}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vectordb} -d ${POSTGRES_DB:-soql_vectors}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   bulk-agent:
     build: .
     container_name: bulk_agent
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ./src/outputs:/app/src/outputs
     env_file:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-vectordb}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-vectordb123}
+      - POSTGRES_DB=${POSTGRES_DB:-soql_vectors}
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
