@@ -7,9 +7,14 @@ from agent.soql_generator_fullpdf import generate_soql_with_full_pdf
 from agent.soql_checker import extract_soql
 from agent.soql_error_fixer import fix_soql_with_error
 from salesforce.bulk_soql_api import run_bulk_query
+from agent.soql_vectorstore import init_vectorstore
 from requests.exceptions import HTTPError
 
 def main():
+    # 0️⃣ ベクトルストアを初期化（DBが空なら構築、存在すればスキップ）
+    print("[INFO] Initializing vector store...")
+    init_vectorstore()
+
     # 1️⃣ Salesforce 認証
     sf_auth = SalesforceAuth()
     access_token, instance_url = sf_auth.authenticate()
@@ -20,7 +25,6 @@ def main():
     # 2️⃣ レポート定義をREST APIで取得
     report_meta = get_report_definition(instance_url, headers)
     print("[INFO] Report definition retrieved successfully.")
-    print(report_meta)
 
     # 3️⃣ Claude/GeminiでSOQLを自動生成
     soql_raw = generate_soql_with_full_pdf(report_meta)

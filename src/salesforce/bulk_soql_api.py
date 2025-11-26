@@ -241,6 +241,7 @@ def run_bulk_query(instance_url: str, headers: dict, soql: str) -> str:
     with open(csv_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerows(all_rows)
+    print(f"[INFO] Saved CSV to {csv_path}")
 
     # 7️⃣ 再利用可能なembed.pyを生成
     embed_path = generate_embed_file(soql, output_dir)
