@@ -1,3 +1,93 @@
+SOQL_QUERY = """SELECT
+    Contractor_Information__r.Name,
+    Contractor_Information__r.smart_customer_id__c,
+    Name,
+    plan_code__r.Name,
+    Contractor_Information__r.parent_agency__c,
+    Contractor_Information__r.account__c,
+    Contractor_Information__r.sales_channel__c,
+    Contractor_Information__r.customer_type__c,
+    Contractor_Information__r.contractor_name__c,
+    Contractor_Information__r.contractor_name_kana__c,
+    Comp_Before_Switch__r.Name,
+    current_gas_plam__c,
+    supply_point_identification_no__c,
+    customer_no__c,
+    latest_billing_year_month__c,
+    bill__c,
+    usage_fee__c,
+    billing_amount__c,
+    discount_rate__c,
+    Contractor_Information__r.payment_type__c,
+    place_name__c,
+    Contractor_Information__r.zip__c,
+    Contractor_Information__r.contractor_address__c,
+    Contractor_Information__r.request_date__c,
+    Contractor_Information__r.atokaku_call_status__c,
+    contract_confirmation_call_ok_date__c,
+    Contractor_Information__r.latest_billing_month__c,
+    Contractor_Information__r.Latest_payment_meyhod__c,
+    cancel_date__c,
+    cancel_confirmed_date__c,
+    cancellation_date__c,
+    cancel_reason__c,
+    use_place_zip__c,
+    use_place_address_connect__c,
+    use_place_name__c,
+    use_place_name_kana__c,
+    matching_result__c,
+    switching_request_ok_date__c,
+    scheduled_switching_date__c,
+    Contractor_Information__r.email__c,
+    Contractor_Information__r.business_sector__c,
+    Contractor_Information__r.business_sector_detail__c,
+    Contractor_Information__r.fact_clct_date__c,
+    Contractor_Information__r.representative_age__c,
+    Contractor_Information__r.representative_brth__c,
+    Contractor_Information__r.representative_country__c,
+    Contractor_Information__r.representative_name__c,
+    Contractor_Information__r.representative_name_kana__c,
+    Contractor_Information__r.pic_name__c,
+    Contractor_Information__r.pic_name_kana__c,
+    Contractor_Information__r.pic_tel__c,
+    Contractor_Information__r.shop_name__c,
+    distinguish_place_tel__c,
+    Contractor_Information__r.tel1_connect__c,
+    use_place_tel_connect__c,
+    Contractor_Information__r.tel2_connect__c,
+    Contractor_Information__r.document_destination_name__c,
+    Contractor_Information__r.document_destination_address_connect__c,
+    remarks1__c,
+    remarks2__c,
+    remarks3__c,
+    Contractor_Information__r.atokaku_comment__c,
+    Contractor_Information__r.claim_linking_no__c,
+    Contractor_Information__r.application_information__r.Name
+FROM Gas_Contract__c
+WHERE
+    cancel_date__c = null
+    AND cancel_confirmed_date__c = null
+    AND cancel_cooperation_date__c = null
+    AND cancel_reason__c = null
+    AND forced_termination_date__c = null
+    AND cancellation_date__c = null
+    AND Compulsory_cancellation_date__c = null
+    AND cancellation_confirmed_date__c = null
+    AND Contractor_Information__r.parent_agency__c != '株式会社アイステーション（管理）'
+    AND Contractor_Information__r.parent_agency__c != '株式会社アクセル（商品企画）'
+    AND Contractor_Information__r.parent_agency__c != '株式会社ネクシィーズ'
+    AND Contractor_Information__r.account__c != '株式会社ネクシィーズ'
+    AND Contractor_Information__r.account__c != 'NUWORKS株式会社（テンポス）'
+    AND Contractor_Information__r.account__c != 'NUWORKS株式会社(t)'
+    AND Contractor_Information__r.account__c != '株式会社come up'
+    AND Contractor_Information__r.Latest_payment_meyhod__c != 'コンビニ'
+    AND Contractor_Information__r.Call_FLG__c = null
+    AND Contractor_Information__r.parent_agency__c != '株式会社エコログ（SP）'
+    AND Contractor_Information__r.parent_agency__c != 'EPARK（管理）'
+    AND scheduled_switching_date__c >= 2025-09-01
+    AND scheduled_switching_date__c < 2025-10-01
+ORDER BY Contractor_Information__r.contractor_name__c ASC"""
+
 import requests
 import time
 import csv
@@ -22,12 +112,20 @@ class OptionIndex:
         self.sf_report_unique = config.sf_report_unique
         self.api_version = config.api_version
         
+        #オプション名
+        self.option_sf_names = config.option_sf_names
+        
+        #代理店名
+        self.agency_names = config.agency_names
+        
         #proxy関係
         self.proxies = config.proxies
         self.MAX_RETRIES = config.MAX_RETRIES
         
         #soql取得
-        self.soql = config.soql
+        soql_path = config.soql_path
+        with open(soql_path, "r", encoding="utf-8") as f:
+            self.soql = f.read()
             
         # output の csv のパス
         now = datetime.now()
@@ -265,21 +363,22 @@ if __name__ == "__main__":
             self.sf_report_unique = "report_id"
             self.api_version = "62.0"
             
-            # プロキシ設定
-            self.proxy_host = "proxy"
-            self.proxy_port = "8080"
-            self.proxy_user = "pc_username"
-            self.proxy_password = "pc_passward"    
-            self.proxy_user = urllib.parse.quote(self.proxy_user)     
-            self.proxy_password = urllib.parse.quote(self.proxy_password)
+            # オプション名（Salesforce上のオプション名リスト）
+            self.option_sf_names = ["オプションA", "オプションB", "オプションC"]
             
+            # 代理店名リスト
+            self.agency_names = ["代理店A", "代理店B", "代理店C"]
+            
+            # プロキシ設定
             self.proxies = {
-                "http": f"http://{self.proxy_user}:{self.proxy_password}@{self.proxy_host}:{self.proxy_port}",
-                "https": f"http://{self.proxy_user}:{self.proxy_password}@{self.proxy_host}:{self.proxy_port}"
+                "http": "http://proxy.example.com:8080",
+                "https": "http://proxy.example.com:8080"
             }
             self.MAX_RETRIES = 3
             
-            self.soql = SOQL_QUERY 
+            # SOQL取得用のパス（このファイルではSOQL_QUERYを使用）
+            # 注意: self.soql = SOQL_QUERY に書き換えることを推奨
+            self.soql_path = "query.txt"  # または直接 SOQL_QUERY を使用
             
             # CSV出力先のベースパス
             self.sf_folder_base_path = "./output"
