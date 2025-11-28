@@ -39,7 +39,7 @@ def main():
 
     while retry_count < MAX_RETRY_COUNT:
         try:
-            csv_path = run_bulk_query(instance_url, headers, soql)
+            csv_path = run_bulk_query(instance_url, headers, soql, report_meta)
             print(f"[INFO] 結果を {csv_path} に保存しました。")
             break
         except HTTPError as e:

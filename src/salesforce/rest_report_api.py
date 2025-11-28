@@ -21,4 +21,11 @@ def get_report_definition(instance_url, headers):
     # ログ出力（レポート名など）
     report_meta = report_json.get("reportMetadata", {})
 
+    # 項目ラベル情報を追加（detailColumnInfo）
+    report_extended_meta = report_json.get("reportExtendedMetadata", {})
+    detail_column_info = report_extended_meta.get("detailColumnInfo", {})
+    report_meta["detailColumnInfo"] = detail_column_info
+
+    print(f"[DEBUG] detailColumnInfo keys: {list(detail_column_info.keys())}")
+
     return report_meta
