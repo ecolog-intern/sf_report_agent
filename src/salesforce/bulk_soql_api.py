@@ -13,16 +13,22 @@ from datetime import datetime
 import json
 
 
-def generate_embed_file(soql: str, output_dir: str) -> str:
+def generate_embed_file(soql: str, output_dir: str, report_meta: dict = None) -> str:
     """
-    SOQLを埋め込んだ再利用可能なBulk API実行ファイルを生成する
+    SOQLとreport_metaを埋め込んだ再利用可能なBulk API実行ファイルを生成する
     """
     template_path = os.path.join(os.path.dirname(__file__), "embed_template.py")
     with open(template_path, "r", encoding="utf-8") as f:
         user_code = f.read()
 
     escaped_soql = soql.replace('"""', '\\"\\"\\"')
-    content = f'SOQL_QUERY = """{escaped_soql}"""\n\n{user_code}'
+
+    # report_metaをJSON文字列として埋め込む
+    if report_meta:
+        meta_json = json.dumps(report_meta, ensure_ascii=False, indent=2)
+        content = f'SOQL_QUERY = """{escaped_soql}"""\n\nREPORT_META = {meta_json}\n\n{user_code}'
+    else:
+        content = f'SOQL_QUERY = """{escaped_soql}"""\n\nREPORT_META = None\n\n{user_code}'
 
     file_path = f"{output_dir}/embed.py"
     with open(file_path, "w", encoding="utf-8") as f:
@@ -31,16 +37,22 @@ def generate_embed_file(soql: str, output_dir: str) -> str:
     return file_path
 
 
-def generate_proxy_embed_file(soql: str, output_dir: str) -> str:
+def generate_proxy_embed_file(soql: str, output_dir: str, report_meta: dict = None) -> str:
     """
-    SOQLを埋め込んだproxy_embed.pyを生成する
+    SOQLとreport_metaを埋め込んだproxy_embed.pyを生成する
     """
     template_path = os.path.join(os.path.dirname(__file__), "proxy_embed_template.py")
     with open(template_path, "r", encoding="utf-8") as f:
         user_code = f.read()
 
     escaped_soql = soql.replace('"""', '\\"\\"\\"')
-    content = f'SOQL_QUERY = """{escaped_soql}"""\n\n{user_code}'
+
+    # report_metaをJSON文字列として埋め込む
+    if report_meta:
+        meta_json = json.dumps(report_meta, ensure_ascii=False, indent=2)
+        content = f'SOQL_QUERY = """{escaped_soql}"""\n\nREPORT_META = {meta_json}\n\n{user_code}'
+    else:
+        content = f'SOQL_QUERY = """{escaped_soql}"""\n\nREPORT_META = None\n\n{user_code}'
 
     file_path = f"{output_dir}/proxy_embed.py"
     with open(file_path, "w", encoding="utf-8") as f:
@@ -205,6 +217,13 @@ def run_bulk_query(instance_url: str, headers: dict, soql: str, report_meta: dic
     with open(soql_path, "w", encoding="utf-8") as f:
         f.write(soql)
 
+    # 6.5️⃣ report_metaをJSONファイルに保存
+    if report_meta:
+        meta_path = f"{output_dir}/report_meta.json"
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(report_meta, f, ensure_ascii=False, indent=2)
+        print(f"[INFO] Saved report meta to {meta_path}")
+
     # 7️⃣ CSVファイルを保存
     csv_path = f"{output_dir}/result.csv"
     with open(csv_path, "w", encoding="utf-8", newline="") as f:
@@ -212,12 +231,12 @@ def run_bulk_query(instance_url: str, headers: dict, soql: str, report_meta: dic
         writer.writerows(all_rows)
     print(f"[INFO] Saved CSV to {csv_path}")
 
-    # 8️⃣ 再利用可能なembed.pyを生成
-    embed_path = generate_embed_file(soql, output_dir)
+    # 8️⃣ 再利用可能なembed.pyを生成（report_metaも埋め込み）
+    embed_path = generate_embed_file(soql, output_dir, report_meta)
     print(f"[INFO] Generated embed file: {embed_path}")
 
-    # 9️⃣ proxy_embed.pyを生成
-    proxy_embed_path = generate_proxy_embed_file(soql, output_dir)
+    # 9️⃣ proxy_embed.pyを生成（report_metaも埋め込み）
+    proxy_embed_path = generate_proxy_embed_file(soql, output_dir, report_meta)
     print(f"[INFO] Generated proxy embed file: {proxy_embed_path}")
 
     return output_dir
