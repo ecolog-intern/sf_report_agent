@@ -5,8 +5,10 @@ import io
 import json
 from datetime import datetime
 import os
+import re
 import pandas as pd
 import winreg
+
 
 '''
 sfからオプションの数値を引っ張る
@@ -28,7 +30,10 @@ class OptionIndex:
         
         #soql取得
         self.soql = config.soql
-            
+
+        # レポートメタデータ
+        self.report_meta = config.report_meta
+
         # output の csv のパス
         now = datetime.now()
         year = now.strftime("%Y年")          # 例: 2025
@@ -240,15 +245,106 @@ class OptionIndex:
     def save_to_csv(self, data, output_path):
         """
         データをCSVファイルに保存する
+        REPORT_METAが定義されていれば、カラム名を日本語に変換する
 
         Args:
             data: 2次元リストのデータ
             output_path: 出力ファイルパス
         """
+        # report_metaを使用してカラム名を日本語に変換
+        if len(data) > 0 and self.report_meta is not None:
+            try:
+                base_object = self._extract_base_object_from_soql(self.soql)
+                label_map = self._build_column_label_map(self.report_meta, base_object)
+                data[0] = self._convert_headers_to_labels(data[0], label_map)
+                print(f"[INFO] カラム名を日本語に変換しました")
+            except Exception as e:
+                print(f"[WARN] カラム名変換に失敗しました: {e}")
+
         with open(output_path, "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
             writer.writerows(data)
         print(f"[INFO] Saved to {output_path}")
+
+    def _build_column_label_map(self, report_meta: dict, base_object: str = None) -> dict:
+        """
+        レポート定義からAPI名→日本語ラベルのマッピングを構築する
+        キーは小文字に正規化される（Bulk APIが小文字で返すため）
+
+        Args:
+            report_meta: レポートメタデータ（detailColumnInfoを含む）
+            base_object: FROM句のベースオブジェクト名（例: "OptionObject__c"）
+
+        Returns:
+            API名（小文字）をキー、日本語ラベルを値とする辞書
+        """
+        label_map = {}
+        detail_column_info = report_meta.get("detailColumnInfo", {})
+
+        for api_name, info in detail_column_info.items():
+            label = info.get("label", api_name)
+            # API名からBulk APIのカラム名形式に変換
+            parts = api_name.split(".")
+            if len(parts) >= 2:
+                first_object = parts[0]  # 最初のオブジェクト名
+                field_parts = parts[1:]
+
+                # ベースオブジェクト以外のオブジェクトからのフィールドは親参照として扱う
+                if base_object and first_object != base_object:
+                    # 親オブジェクトへの参照: ObjectName__c → objectname__r
+                    parent_ref = first_object.replace("__c", "__r").lower()
+                    # __c を __r に変換（最後の項目以外）
+                    converted_parts = []
+                    for i, part in enumerate(field_parts):
+                        if i < len(field_parts) - 1 and part.endswith("__c"):
+                            converted_parts.append(part.replace("__c", "__r"))
+                        else:
+                            converted_parts.append(part)
+                    bulk_column_name = parent_ref + "." + ".".join(converted_parts)
+                else:
+                    # ベースオブジェクトのフィールド: 最初のオブジェクト名を除去
+                    converted_parts = []
+                    for i, part in enumerate(field_parts):
+                        if i < len(field_parts) - 1 and part.endswith("__c"):
+                            converted_parts.append(part.replace("__c", "__r"))
+                        else:
+                            converted_parts.append(part)
+                    bulk_column_name = ".".join(converted_parts)
+
+                # 小文字に正規化してマッピング
+                label_map[bulk_column_name.lower()] = label
+            else:
+                label_map[api_name.lower()] = label
+
+        return label_map
+
+    def _convert_headers_to_labels(self, headers_row: list, label_map: dict) -> list:
+        """
+        CSVヘッダー行をAPI名から日本語ラベルに変換する
+
+        Args:
+            headers_row: CSVのヘッダー行（API名のリスト）
+            label_map: API名（小文字）→ラベルのマッピング
+
+        Returns:
+            日本語ラベルに変換されたヘッダー行
+        """
+        return [label_map.get(h.lower(), h) for h in headers_row]
+
+    def _extract_base_object_from_soql(self, soql: str) -> str:
+        """
+        SOQLからFROM句のベースオブジェクト名を抽出する
+
+        Args:
+            soql: SOQLクエリ文字列
+
+        Returns:
+            ベースオブジェクト名（例: "OptionObject__c"）
+        """
+        match = re.search(r'\bFROM\s+(\w+)', soql, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        return None
 
 
 # 使用例
@@ -264,32 +360,36 @@ if __name__ == "__main__":
             self.sf_access_token_URL = "https://login.salesforce.com/services/oauth2/token"
             self.sf_report_unique = "report_id"
             self.api_version = "62.0"
-            
+
             # プロキシ設定
             self.proxy_host = "proxy"
             self.proxy_port = "8080"
             self.proxy_user = "pc_username"
-            self.proxy_password = "pc_passward"    
-            self.proxy_user = urllib.parse.quote(self.proxy_user)     
+            self.proxy_password = "pc_passward"
+            self.proxy_user = urllib.parse.quote(self.proxy_user)
             self.proxy_password = urllib.parse.quote(self.proxy_password)
-            
+
             self.proxies = {
                 "http": f"http://{self.proxy_user}:{self.proxy_password}@{self.proxy_host}:{self.proxy_port}",
                 "https": f"http://{self.proxy_user}:{self.proxy_password}@{self.proxy_host}:{self.proxy_port}"
             }
             self.MAX_RETRIES = 3
-            
-            self.soql = SOQL_QUERY 
-            
+
+            # SOQL（このファイルではSOQL_QUERYを使用）
+            self.soql = SOQL_QUERY
+
+            # レポートメタデータ（このファイルではREPORT_METAを使用）
+            self.report_meta = REPORT_META
+
             # CSV出力先のベースパス
             self.sf_folder_base_path = "./output"
-    
+
     # Configインスタンスを作成
     config = Config()
-    
+
     # OptionIndexを実行
     option_index = OptionIndex(config)
-    
+
     # オプションマトリックスを取得
     result_df = option_index.option_extract()
     print(result_df)
