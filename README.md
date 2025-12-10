@@ -20,6 +20,7 @@ docker-compose up --abort-on-container-exit --exit-code-from bulk-agent
 - **result.csv** - クエリ結果データ
 - **embed.py** - 再利用可能なBulk API実行ファイル
 - **proxy_embed.py** - proxy環境で実行するためのBulk API実行ファイル
+- **report_meta.json** - レポートのメタ情報をまとめたjson
 
 4. 生成されたcsvの検証
 
