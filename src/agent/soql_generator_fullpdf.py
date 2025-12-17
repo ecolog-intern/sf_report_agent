@@ -90,7 +90,11 @@ def generate_soql_with_full_pdf(report_meta: dict) -> str:
    - field LIKE '%A%' OR field LIKE '%B%' AND other_field = null ❌
      → これは field LIKE '%A%' OR (field LIKE '%B%' AND other_field = null) と解釈される
 
-5. 【超重要：NULL比較の構文（Bulk API）】
+5. 【超重要：SELECT句のフィールド順序】
+   表示項目（detailColumns）に記載されている順序を厳密に守ってSELECT句を生成してください。
+   この順序はCSV出力時のカラム名マッピングに使用されるため、順序を変更すると不整合が発生します。
+
+6. 【超重要：NULL比較の構文（Bulk API）】
    Bulk APIでは「IS NULL」「IS NOT NULL」は使用できません。
    必ず「= null」「!= null」を使用してください。
 
@@ -103,7 +107,7 @@ def generate_soql_with_full_pdf(report_meta: dict) -> str:
    例: 「cancel_date__c equals 」（空値）は
    → cancel_date__c = null
 
-6. 【超重要：相対日付フィルタの変換ルール】
+7. 【超重要：相対日付フィルタの変換ルール】
    Bulk APIでは相対日付リテラル（LAST_N_MONTHS:N等）が認識されない場合があります。
    そのため、必ず実日付に展開してクエリを作成してください。
 
@@ -122,7 +126,7 @@ def generate_soql_with_full_pdf(report_meta: dict) -> str:
    例: 「scheduled_switching_date__c equals 2か月前」は
    → scheduled_switching_date__c >= 2025-09-01 AND scheduled_switching_date__c < 2025-10-01
 
-7. 【超重要：日付リテラルの書式（Bulk API）】
+8. 【超重要：日付リテラルの書式（Bulk API）】
    Bulk APIでは日付リテラルをクォートで囲んではいけません。
 
    正しい書き方:

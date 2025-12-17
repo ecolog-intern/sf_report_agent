@@ -1,0 +1,7 @@
+services:
+  checker:
+    build:
+      context: ./checker
+      dockerfile: Dockerfile
+    volumes:
+      - ./checker/inputs:/app/inputs

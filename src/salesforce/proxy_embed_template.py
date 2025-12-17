@@ -5,7 +5,6 @@ import io
 import json
 from datetime import datetime
 import os
-import re
 import pandas as pd
 import winreg
 
@@ -254,9 +253,9 @@ class OptionIndex:
         # report_metaを使用してカラム名を日本語に変換
         if len(data) > 0 and self.report_meta is not None:
             try:
-                base_object = self._extract_base_object_from_soql(self.soql)
-                label_map = self._build_column_label_map(self.report_meta, base_object)
-                data[0] = self._convert_headers_to_labels(data[0], label_map)
+                detail_columns = self.report_meta.get("detailColumns", [])
+                detail_column_info = self.report_meta.get("detailColumnInfo", {})
+                data[0] = self._convert_headers_by_soql_mapping(data[0], detail_columns, detail_column_info)
                 print(f"[INFO] カラム名を日本語に変換しました")
             except Exception as e:
                 print(f"[WARN] カラム名変換に失敗しました: {e}")
@@ -266,85 +265,45 @@ class OptionIndex:
             writer.writerows(data)
         print(f"[INFO] Saved to {output_path}")
 
-    def _build_column_label_map(self, report_meta: dict, base_object: str = None) -> dict:
+    def _convert_headers_by_soql_mapping(self, headers_row: list, detail_columns: list, detail_column_info: dict) -> list:
         """
-        レポート定義からAPI名→日本語ラベルのマッピングを構築する
-        キーは小文字に正規化される（Bulk APIが小文字で返すため）
-
-        Args:
-            report_meta: レポートメタデータ（detailColumnInfoを含む）
-            base_object: FROM句のベースオブジェクト名（例: "OptionObject__c"）
-
-        Returns:
-            API名（小文字）をキー、日本語ラベルを値とする辞書
-        """
-        label_map = {}
-        detail_column_info = report_meta.get("detailColumnInfo", {})
-
-        for api_name, info in detail_column_info.items():
-            label = info.get("label", api_name)
-            # API名からBulk APIのカラム名形式に変換
-            parts = api_name.split(".")
-            if len(parts) >= 2:
-                first_object = parts[0]  # 最初のオブジェクト名
-                field_parts = parts[1:]
-
-                # ベースオブジェクト以外のオブジェクトからのフィールドは親参照として扱う
-                if base_object and first_object != base_object:
-                    # 親オブジェクトへの参照: ObjectName__c → objectname__r
-                    parent_ref = first_object.replace("__c", "__r").lower()
-                    # __c を __r に変換（最後の項目以外）
-                    converted_parts = []
-                    for i, part in enumerate(field_parts):
-                        if i < len(field_parts) - 1 and part.endswith("__c"):
-                            converted_parts.append(part.replace("__c", "__r"))
-                        else:
-                            converted_parts.append(part)
-                    bulk_column_name = parent_ref + "." + ".".join(converted_parts)
-                else:
-                    # ベースオブジェクトのフィールド: 最初のオブジェクト名を除去
-                    converted_parts = []
-                    for i, part in enumerate(field_parts):
-                        if i < len(field_parts) - 1 and part.endswith("__c"):
-                            converted_parts.append(part.replace("__c", "__r"))
-                        else:
-                            converted_parts.append(part)
-                    bulk_column_name = ".".join(converted_parts)
-
-                # 小文字に正規化してマッピング
-                label_map[bulk_column_name.lower()] = label
-            else:
-                label_map[api_name.lower()] = label
-
-        return label_map
-
-    def _convert_headers_to_labels(self, headers_row: list, label_map: dict) -> list:
-        """
-        CSVヘッダー行をAPI名から日本語ラベルに変換する
+        CSVヘッダー行をSOQLフィールドとdetailColumnsのマッピングに基づいて日本語ラベルに変換する
+        Bulk APIはSELECT句の順序を保持しないため、SOQLフィールド名からマッピングを構築する
 
         Args:
             headers_row: CSVのヘッダー行（API名のリスト）
-            label_map: API名（小文字）→ラベルのマッピング
+            detail_columns: レポートメタのdetailColumns（順序付きリスト）
+            detail_column_info: レポートメタのdetailColumnInfo
 
         Returns:
             日本語ラベルに変換されたヘッダー行
         """
-        return [label_map.get(h.lower(), h) for h in headers_row]
+        # SOQLからSELECT句のフィールドを抽出
+        import re
+        select_match = re.search(r'SELECT\s+([\s\S]+?)\s+FROM', self.soql, re.IGNORECASE)
+        soql_fields = []
+        if select_match:
+            fields_str = select_match.group(1)
+            soql_fields = [f.strip() for f in fields_str.split(',')]
 
-    def _extract_base_object_from_soql(self, soql: str) -> str:
-        """
-        SOQLからFROM句のベースオブジェクト名を抽出する
+        # SOQLフィールド（小文字）→ detailColumnsのラベルのマッピングを構築
+        soql_to_label = {}
+        if len(soql_fields) == len(detail_columns):
+            for soql_field, detail_col in zip(soql_fields, detail_columns):
+                if detail_col in detail_column_info:
+                    label = detail_column_info[detail_col].get("label", detail_col)
+                    soql_to_label[soql_field.lower()] = label
 
-        Args:
-            soql: SOQLクエリ文字列
+        result = []
+        for h in headers_row:
+            h_lower = h.lower()
+            if h_lower in soql_to_label:
+                result.append(soql_to_label[h_lower])
+            else:
+                # フォールバック: 元のヘッダー名を使用
+                result.append(h)
 
-        Returns:
-            ベースオブジェクト名（例: "OptionObject__c"）
-        """
-        match = re.search(r'\bFROM\s+(\w+)', soql, re.IGNORECASE)
-        if match:
-            return match.group(1)
-        return None
+        return result
 
 
 # 使用例
