@@ -36,4 +36,20 @@ def report_meta_to_text(report_meta: dict) -> str:
         lines.append(f"フィルタ論理式: {report_meta['reportBooleanFilter']}")
     if "sortBy" in report_meta:
         lines.append(f"ソート条件: {report_meta['sortBy']}")
+
+    if "relationshipInfo" in report_meta:
+        lines.append("\nリレーション情報（SOQL内で使用する__r名）:")
+        for obj_name, fields in report_meta["relationshipInfo"].items():
+            if not fields:
+                continue
+            lines.append(f"  {obj_name} のルックアップフィールド:")
+            for f in fields:
+                ref_to = ", ".join(f["referenceTo"])
+                lines.append(
+                    f"    - フィールド名: {f['fieldName']} "
+                    f"→ SOQLでのリレーション名: {f['relationshipName']} "
+                    f"（参照先: {ref_to}）"
+                )
+        lines.append("  ※ 親オブジェクトのフィールドを参照する際は上記のリレーション名を使用してください")
+
     return "\n".join(lines)
