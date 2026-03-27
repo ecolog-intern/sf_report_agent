@@ -2,7 +2,7 @@ import os
 import json
 from config.settings import settings
 from salesforce.auth import SalesforceAuth
-from salesforce.rest_report_api import get_report_definition
+from salesforce.rest_report_api import get_report_definition, get_object_relationships
 from agent.soql_generator_fullpdf import generate_soql_with_full_pdf
 from agent.soql_checker import extract_soql
 from agent.soql_error_fixer import fix_soql_with_error
@@ -25,6 +25,18 @@ def main():
     # 2️⃣ レポート定義をREST APIで取得
     report_meta = get_report_definition(instance_url, headers)
     print("[INFO] Report definition retrieved successfully.")
+
+    # 2.5️⃣ detailColumnsに登場するオブジェクトのdescribeを取得してリレーション情報を追加
+    detail_columns = report_meta.get("detailColumns", [])
+    object_names = sorted({
+        col.split(".")[0]
+        for col in detail_columns
+        if "." in col and col.split(".")[0].endswith("__c")
+    })
+    if object_names:
+        print(f"[INFO] Fetching describe for objects: {object_names}")
+        relationship_info = get_object_relationships(instance_url, headers, object_names)
+        report_meta["relationshipInfo"] = relationship_info
 
     # 3️⃣ Claude/GeminiでSOQLを自動生成
     soql_raw = generate_soql_with_full_pdf(report_meta)
