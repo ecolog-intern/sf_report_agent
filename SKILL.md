@@ -107,9 +107,6 @@ checker-1  | Shape match: ⭕️ または ❌
 
 `checker/inputs/` 内の CSV ファイルをすべて削除してください（`__init__.py` は残す）。
 
-`src/outputs/`内のファイルを全て削除してください。
-（`__init__.py` は残す）。
-
 ```bash
 rm -f /sf_report_agent/checker/inputs/*.csv
 ```

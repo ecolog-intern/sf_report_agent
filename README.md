@@ -59,3 +59,17 @@ SalesforceレポートからSOQLを自動生成し、Bulk API 2.0でデータを
     - プログラムでの使い方は各ファイルの最後に記載した使用例をもとにアレンジ加えて
 
     関数の使い方はembed.pyの最後を参照に
+
+
+## claude skills登録方法
+- このskillsはclaude code上でしか動かないので、claude desktopでは動かない
+
+1. このディレクトリ自体を、`~/.claude/skills`直下に置く
+
+2. ディレクトリ名は`sf-report`にする
+
+3. .envを置く
+
+4. claude code上で`/sf-report`コマンドが動くようになる
+
+5. 実行後は`~/.claude/skills/sf-report/src/outputs`直下にフォルダが生成される
